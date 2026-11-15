@@ -1,0 +1,77 @@
+name: Release
+
+# Publishes AllowPaste.zip as a GitHub release whenever main has an extension
+# version (the "version" in extension/manifest.json) that hasn't been released
+# yet. The newest release's zip is always at:
+#   https://github.com/<owner>/<repo>/releases/latest/download/AllowPaste.zip
+# To publish a new version: bump the version, run `python3 tools/make-zip.py`,
+# and merge into main. Can also be started by hand from the Actions tab.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      exists: ${{ steps.version.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(jq -r .version extension/manifest.json)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$tag is already released. Bump the version in extension/manifest.json to publish a new one."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    needs: check
+    if: needs.check.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # Also checks that AllowPaste.zip matches extension/.
+      - name: Test the extension in Chromium
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+          node tests/run.cjs
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          cat > notes.md <<'EOF'
+          **To install** (or reinstall on a new computer):
+
+          1. Download **AllowPaste.zip** below and unzip it into a folder you'll keep, such as Documents. Chrome loads the extension from that folder every time it starts, so don't delete it.
+          2. Open `chrome://extensions` and turn on **Developer mode** (top right).
+          3. Click **Load unpacked** and choose the **AllowPaste** folder: the one with `manifest.json` directly inside it.
+          4. Pin it: click the puzzle-piece icon in the toolbar, then the pin next to AllowPaste.
+
+          **To update** from an older version: replace the files in that folder with the new ones, then click the reload arrow on AllowPaste's card in `chrome://extensions`.
+
+          **To use:** on a page that blocks paste, click the AllowPaste icon (or press Alt+Shift+V) and paste as usual.
+          EOF
+          gh release create "$TAG" AllowPaste.zip \
+            --target "$GITHUB_SHA" --title "AllowPaste $TAG" --notes-file notes.md

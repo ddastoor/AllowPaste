@@ -36,6 +36,10 @@ and try again.</p>
   <small>(right-click &rarr; Paste still works here without AllowPaste)</small>
   <input id="keys" type="password" autocomplete="off"></label>
 
+<label>Ctrl+V / Cmd+V / Shift+Insert blocked for the whole page
+  <small>(one keyboard listener on the page, in the capture phase, as some bank sites do)</small>
+  <input id="page-keys" type="password" autocomplete="off"></label>
+
 <label>Paste input cancelled
   <small>(beforeinput)</small>
   <input id="beforeinput" type="password" autocomplete="off"></label>
@@ -73,10 +77,16 @@ and try again.</p>
     if (e.target.id === "document") { e.preventDefault(); count("document"); }
   }, true);
 
+  const isPasteKey = (e) => ((e.key === "v" || e.key === "V") && (e.ctrlKey || e.metaKey)) ||
+                            (e.key === "Insert" && e.shiftKey);
+
   byId("keys").addEventListener("keydown", (e) => {
-    const v = e.key === "v" || e.key === "V";
-    if ((v && (e.ctrlKey || e.metaKey)) || (e.key === "Insert" && e.shiftKey)) { e.preventDefault(); count("keys"); }
+    if (isPasteKey(e)) { e.preventDefault(); count("keys"); }
   });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.id === "page-keys" && isPasteKey(e)) { e.preventDefault(); count("page-keys"); }
+  }, true);
 
   byId("beforeinput").addEventListener("beforeinput", (e) => {
     if (e.inputType.startsWith("insertFromPaste")) { e.preventDefault(); count("beforeinput"); }

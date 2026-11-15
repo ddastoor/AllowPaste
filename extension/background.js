@@ -35,7 +35,7 @@ async function toggle(tab) {
     });
     await show(tab.id, turnOn ? "on" : "off");
   } catch (err) {
-    // e.g. chrome:// pages and the Chrome Web Store, where no extension may run.
+    // For example chrome:// pages and the Chrome Web Store, where no extension may run.
     await show(tab.id, "error", err.message);
   }
 }

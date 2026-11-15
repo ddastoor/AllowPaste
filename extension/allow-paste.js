@@ -10,6 +10,9 @@
 // page's fields - and stop the event from going any further. The site's code
 // never hears about it, so it can't cancel it, and Chrome pastes as usual.
 //
+// It never looks at what you paste: from an event it reads only what kind of
+// event it is and which keys were pressed (tests/run.cjs checks this).
+//
 // We never cancel anything ourselves, and we leave the "input" event alone:
 // that is how sites (React, Angular, ...) notice what's in a field. Stopping it
 // would leave the field looking filled while the site thinks it is empty.
